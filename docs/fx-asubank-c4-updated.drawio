@@ -1,0 +1,81 @@
+<mxfile host="app.diagrams.net" pages="2">
+  <diagram id="context" name="C4 Context">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bank" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1168bd;fontColor=#ffffff;strokeColor=#0b4884;" value="&lt;b&gt;FX-АСУБАНК&lt;/b&gt;&lt;br&gt;Cистема автоматизации FX-сделок" vertex="1">
+          <mxGeometry height="120" width="320" x="420" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="trader" parent="1" style="shape=mxgraph.c4.person;whiteSpace=wrap;html=1;" value="Трейдер&lt;br&gt;Создает FX-сделки" vertex="1">
+          <mxGeometry height="120" width="120" x="120" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="positioner" parent="1" style="shape=mxgraph.c4.person;whiteSpace=wrap;html=1;" value="Позиционер&lt;br&gt;Согласование сделок" vertex="1">
+          <mxGeometry height="120" width="120" x="120" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="reports" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;fontColor=#ffffff;" value="Система отчетности и НСИ" vertex="1">
+          <mxGeometry height="100" width="220" x="900" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="quotes" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;fontColor=#ffffff;" value="Quote Service&lt;br&gt;Источники котировок" vertex="1">
+          <mxGeometry height="100" width="220" x="900" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="trader" style="endArrow=block;html=1;" target="bank" value="REST/Web UI">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="positioner" style="endArrow=block;html=1;" target="bank" value="Workflow / approval">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="bank" style="endArrow=block;html=1;" target="reports" value="REST / MQ">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="bank" style="endArrow=block;html=1;" target="quotes" value="Quotes API">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="container" name="C4 Container">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="web" value="&lt;b&gt;Web UI&lt;/b&gt;&lt;br&gt;Интерфейс трейдера и позиционера" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438dd5;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="80" y="180" width="240" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="api" value="&lt;b&gt;FX Deal Service&lt;/b&gt;&lt;br&gt;Создание, валидация и workflow FX-сделок" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1168bd;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="420" y="120" width="280" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="settlement" value="&lt;b&gt;Settlement Service&lt;/b&gt;&lt;br&gt;Расчет платежей и nostro-счетов" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1168bd;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="420" y="300" width="280" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="audit" value="&lt;b&gt;Audit &amp; Reporting&lt;/b&gt;&lt;br&gt;Журналирование и отчетность" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#438dd5;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="420" y="480" width="280" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="&lt;b&gt;PostgreSQL&lt;/b&gt;&lt;br&gt;Сделки, платежи, НСИ, аудит" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#2d97d3;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="850" y="250" width="240" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="mq" value="RabbitMQ / Kafka" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#999999;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="850" y="500" width="240" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" value="HTTPS" style="endArrow=block;html=1;" edge="1" parent="1" source="web" target="api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" value="SQL/JPA" style="endArrow=block;html=1;" edge="1" parent="1" source="api" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="Settlement API" style="endArrow=block;html=1;" edge="1" parent="1" source="api" target="settlement">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="Audit events" style="endArrow=block;html=1;" edge="1" parent="1" source="api" target="audit">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" value="Store reports" style="endArrow=block;html=1;" edge="1" parent="1" source="audit" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" value="Async events" style="endArrow=block;html=1;" edge="1" parent="1" source="audit" target="mq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,37 @@
+[project]
+name = "fx-deal-manager"
+version = "0.1.0"
+description = "Foreign Exchange Deal Manager API"
+readme = "README.md"
+authors = [
+    { name = "uniqelus", email = "vanyatertyshnikov@yandex.ru" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.115.0",
+    "pydantic-settings>=2.0.0",
+    "uvicorn[standard]>=0.32.0",
+]
+
+[project.scripts]
+fx-deal-manager = "fx_deal_manager:main"
+
+[build-system]
+requires = ["uv_build>=0.10.8"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.15.14",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]

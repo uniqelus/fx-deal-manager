@@ -1,0 +1,15 @@
+# Optional dev stack: nginx serves UI static files and proxies /api to fx-deal-manager.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+services:
+  ui:
+    image: nginx:1.27-alpine
+    container_name: fx-deal-manager-ui
+    ports:
+      - "${UI_PORT:-5173}:80"
+    volumes:
+      - ../fx-deal-manager-ui:/usr/share/nginx/html:ro
+      - ./nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+    restart: unless-stopped

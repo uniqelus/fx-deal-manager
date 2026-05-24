@@ -9,5 +9,6 @@ def test_health_check() -> None:
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "ok"
+    assert payload["status"] in ("ok", "degraded")
     assert payload["service"] == "Foreign Exchange Deal Manager"
+    assert "database" in payload

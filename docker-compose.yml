@@ -1,14 +1,51 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fx-deal-manager-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fx_deal_manager}
+      POSTGRES_USER: ${POSTGRES_USER:-fx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fx_password}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fx} -d ${POSTGRES_DB:-fx_deal_manager}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: fx-deal-manager-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    profiles:
+      - redis
+    restart: unless-stopped
+
   api:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: fx-deal-manager-api
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
       - "${PORT:-8000}:8000"
     env_file:
       - .env
     environment:
       DEBUG: ${DEBUG:-false}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-fx}:${POSTGRES_PASSWORD:-fx_password}@postgres:5432/${POSTGRES_DB:-fx_deal_manager}
+      JWT_ISSUER: ${JWT_ISSUER:-http://host.docker.internal:8083}
+      JWKS_URL: ${JWKS_URL:-http://host.docker.internal:8083/.well-known/jwks.json}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"]
@@ -16,3 +53,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  postgres-data:

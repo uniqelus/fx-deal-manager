@@ -6,7 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from fx_deal_manager.api.middleware import RequestLoggingMiddleware
 from fx_deal_manager.api.exceptions import ValidationFailedError, validation_failed_handler
-from fx_deal_manager.api.routes import audit_router, deals_router, health_router, me_router, nsi_router
+from fx_deal_manager.api.routes import (
+    audit_router,
+    deals_router,
+    health_router,
+    me_router,
+    nsi_router,
+    reports_router,
+)
 from fx_deal_manager.core.config import settings
 from fx_deal_manager.core.database import engine
 from fx_deal_manager.core.logging import get_logger, setup_logging
@@ -53,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(deals_router, prefix="/api/v1")
     app.include_router(nsi_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
+    app.include_router(reports_router, prefix="/api/v1")
     return app
 
 

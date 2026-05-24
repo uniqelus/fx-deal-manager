@@ -138,6 +138,31 @@ class ApprovalService:
         await self._repo.commit()
         return _to_response(updated)
 
+    async def cancel_deal(
+        self, deal_id: UUID, comment: str | None, user: UserClaims
+    ) -> DealResponse:
+        deal = await self._load_deal(deal_id)
+        self._require_trader(deal, user)
+        if deal.deal_state.code != DealState.DRAFT.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only DRAFT deals can be cancelled",
+            )
+
+        old_status = deal.deal_state.code
+        await self._repo.set_deal_state(deal, DealState.CANCELLED)
+        updated = await self._repo.save_existing(deal)
+        await self._audit.log(
+            entity_id=updated.id,
+            entity_type="FXDeal",
+            action="STATUS_CHANGE",
+            created_by=user.email,
+            old_value=json.dumps({"status": old_status}),
+            new_value=json.dumps({"status": DealState.CANCELLED.value, "comment": comment}),
+        )
+        await self._repo.commit()
+        return _to_response(updated)
+
     async def get_queue(self, page: int = 1, page_size: int = 20) -> list[DealResponse]:
         deals, _ = await self._repo.list_deals(
             status=DealState.WAITING_FOR_POSITIONER,

@@ -440,5 +440,5 @@ src/fx_deal_manager/
 - [x] **Этап 3:** State machine согласования (submit/approve/return/reject), queue API
 - [x] **Этап 4:** AuditLogService, position/NSI stub-адаптеры
 - [ ] **Этап 5:** js/api.js, подключение deals/queue/audit экранов к API
-- [ ] **Этап 6 (optional):** Reports CSV, admin через IdP API
-- [ ] **Этап 7:** Integration tests, ПМИ, demo script, обновление wiki
+- [x] **Этап 6 (optional):** Reports CSV (`GET /reports/deals`), отмена в DRAFT (`POST /deals/{id}/cancel`, FR-015), state `CANCELLED`
+- [x] **Этап 7:** Integration tests (`test_stage6_cancel_reports.py`), `docs/ПМИ.md`, `docs/Руководство-*.md`, `scripts/demo.sh`

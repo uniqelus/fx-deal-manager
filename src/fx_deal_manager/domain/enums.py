@@ -7,6 +7,7 @@ class DealState(StrEnum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     EXECUTED = "EXECUTED"
+    CANCELLED = "CANCELLED"
 
 
 class DealType(StrEnum):

@@ -146,6 +146,47 @@ curl -s -X POST http://localhost:8000/api/v1/deals/{id}/validate \
 | GET | `/api/v1/audit-events` | ALL | Журнал аудита (`entity_id`, `user_id`, `from`, `to`) |
 | POST | `/api/v1/nsi/sync` | ADMIN | Stub-синхронизация НСИ |
 
+## Отмена и отчёты (этап 6)
+
+| Method | Path | Роль | Описание |
+|--------|------|------|----------|
+| POST | `/api/v1/deals/{id}/cancel` | TRADER | Отмена сделки в `DRAFT` → `CANCELLED` (FR-015) |
+| GET | `/api/v1/reports/deals` | AUDITOR/POSITIONER/ADMIN | Отчёт по сделкам (JSON или CSV) (FR-019) |
+
+```bash
+# Отмена черновика
+curl -s -X POST .../deals/{id}/cancel \
+  -H "Authorization: Bearer $TRADER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"comment":"Перепроверим параметры"}' | jq
+
+# Отчёт за период в CSV
+curl -s "...reports/deals?trade_date_from=2026-05-01&trade_date_to=2026-05-31&format=csv" \
+  -H "Authorization: Bearer $AUDITOR_TOKEN" -o deals_report.csv
+```
+
+## Демо и испытания (этап 7)
+
+| Артефакт | Назначение |
+|----------|------------|
+| `scripts/demo.sh` | Happy path: trader → validate → submit → positioner approve → audit |
+| `docs/ПМИ.md` | Программа и методика испытаний (UAT-сценарии + автотесты) |
+| `docs/Руководство-пользователя.md` | Инструкции для трейдера, позиционера, аудитора |
+| `docs/Руководство-администратора.md` | Развёртывание, миграции, мониторинг, бэкап |
+
+Запуск автоматизированных тестов с реальной PostgreSQL:
+
+```bash
+docker compose up -d postgres
+RUN_INTEGRATION_TESTS=1 uv run pytest tests/ -v
+```
+
+Demo-скрипт после поднятия стека:
+
+```bash
+./scripts/demo.sh
+```
+
 ```bash
 # Полный цикл до EXECUTED
 curl -s -X POST .../deals/{id}/submit -H "Authorization: Bearer $TRADER_TOKEN"

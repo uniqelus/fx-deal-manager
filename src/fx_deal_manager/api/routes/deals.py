@@ -157,3 +157,14 @@ async def take_for_edit(
     service: Annotated[ApprovalService, Depends(get_approval_service)],
 ) -> DealResponse:
     return await service.take_for_edit(deal_id, user)
+
+
+@router.post("/{deal_id}/cancel", summary="Cancel a DRAFT deal (FR-015)")
+async def cancel_deal(
+    deal_id: UUID,
+    user: Annotated[UserClaims, Depends(require_role("TRADER", "ADMIN"))],
+    service: Annotated[ApprovalService, Depends(get_approval_service)],
+    payload: PositionerCommentRequest | None = None,
+) -> DealResponse:
+    comment = payload.comment if payload else None
+    return await service.cancel_deal(deal_id, comment, user)

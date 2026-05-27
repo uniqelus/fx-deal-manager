@@ -29,6 +29,9 @@ class NostroAssignmentService:
                     )
                 )
             else:
-                assigned.append((payment, nostro.id))
+                # account_code в FX сохраняем как account_number из NSI —
+                # это же поле используется в качестве идентификатора счёта
+                # при отправке платежа в ПОЗИЦИИ-АСУБАНК.
+                assigned.append((payment, nostro.account_number))
 
         return assigned, errors

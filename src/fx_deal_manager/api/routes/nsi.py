@@ -9,7 +9,6 @@ from fx_deal_manager.domain.schemas import (
     CounterpartyResponse,
     CurrencyResponse,
     NostroAccountResponse,
-    NsiSyncResponse,
     UserClaims,
 )
 from fx_deal_manager.services.nsi_service import NsiService
@@ -52,11 +51,3 @@ async def list_nostro_accounts(
     _ = user
     return await service.list_nostro_accounts(currency_code)
 
-
-@router.post("/sync", summary="Sync NSI from external system (stub)")
-async def sync_nsi(
-    user: Annotated[UserClaims, Depends(require_role("ADMIN"))],
-    service: Annotated[NsiService, Depends(get_nsi_service)],
-) -> NsiSyncResponse:
-    _ = user
-    return await service.sync_from_external()

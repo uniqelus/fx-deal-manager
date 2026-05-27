@@ -30,6 +30,16 @@ class MeResponse(BaseModel):
     role: str
 
 
+class MeProfileResponse(MeResponse):
+    phone: str | None = None
+    department: str | None = None
+
+
+class MeProfileUpdateRequest(BaseModel):
+    phone: str | None = Field(default=None, max_length=40)
+    department: str | None = Field(default=None, max_length=120)
+
+
 class DealCreateRequest(BaseModel):
     trade_date: date
     deal_type: DealType
@@ -170,3 +180,60 @@ class NsiSyncResponse(BaseModel):
     synced: bool
     counterparties: int
     message: str
+
+
+class FxPositionAccountResponse(BaseModel):
+    account_number: str
+    name: str | None = None
+    currency_code: str
+    opening_balance: Decimal | None = None
+    turnover_in: Decimal | None = None
+    turnover_out: Decimal | None = None
+    current_position: Decimal | None = None
+    source: str
+
+
+class FxPositionCurrencyResponse(BaseModel):
+    currency_code: str
+    current_position: Decimal
+    open_exposure: Decimal
+    projected_position: Decimal
+
+
+class FxPositionsResponse(BaseModel):
+    date: date
+    source: str
+    accounts: list[FxPositionAccountResponse]
+    currencies: list[FxPositionCurrencyResponse]
+
+
+class QuoteResponse(BaseModel):
+    pair: str
+    base_currency: str
+    quote_currency: str
+    mid: Decimal
+    bid: Decimal
+    ask: Decimal
+    spread: Decimal
+    delta_percent: Decimal
+    source: str
+    updated_at: datetime
+
+
+class NotificationResponse(BaseModel):
+    id: UUID
+    title: str
+    description: str | None = None
+    kind: str
+    created_at: datetime
+    read: bool
+    entity_id: UUID
+    entity_type: str
+    action: str
+    related_url: str | None = None
+
+
+class NotificationListResponse(BaseModel):
+    items: list[NotificationResponse]
+    unread_count: int
+    total: int

@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fx_deal_manager.core.fault_injection import PaymentSaveFaultError
 from fx_deal_manager.api.exceptions import ValidationFailedError
 from fx_deal_manager.domain.enums import (
     DealState,
@@ -29,6 +30,7 @@ from fx_deal_manager.repositories.deal_repository import (
 )
 from fx_deal_manager.repositories.nsi_repository import NsiRepository
 from fx_deal_manager.services.audit_log_service import AuditLogService
+from fx_deal_manager.services.limit_check import LimitCheckService
 from fx_deal_manager.services.nostro_assignment import NostroAssignmentService
 from fx_deal_manager.services.payment_calculator import PaymentCalculator
 from fx_deal_manager.services.settlement import SettlementService
@@ -41,12 +43,13 @@ class DealService:
         self._repo = DealRepository(session)
         self._nsi = NsiRepository(session)
         self._validation = ValidationService()
+        self._limit_check = LimitCheckService(session)
         self._audit = AuditLogService(session)
 
     async def create_deal(self, payload: DealCreateRequest, user: UserClaims) -> DealResponse:
         if not await self._repo.counterparty_exists(payload.counterparty_id):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail=f"Counterparty '{payload.counterparty_id}' not found or inactive",
             )
 
@@ -102,7 +105,7 @@ class DealService:
         if "counterparty_id" in updates:
             if not await self._repo.counterparty_exists(updates["counterparty_id"]):
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail=f"Counterparty '{updates['counterparty_id']}' not found or inactive",
                 )
             deal.counterparty_id = updates["counterparty_id"]
@@ -204,6 +207,19 @@ class DealService:
             await self._repo.commit()
             raise ValidationFailedError(issues)
 
+        limit_issues = await self._limit_check.check(deal)
+        if limit_issues:
+            await self._repo.set_validation_status(deal, ValidationStatus.INVALID)
+            await self._audit.log(
+                entity_id=deal.id,
+                entity_type="FXDeal",
+                action="VALIDATE_FAILED",
+                created_by=user.email,
+                new_value=json.dumps([issue.__dict__ for issue in limit_issues]),
+            )
+            await self._repo.commit()
+            raise ValidationFailedError(limit_issues)
+
         deal_type = DealType(deal.deal_type.code)
         calendar = await self._nsi.load_calendar(
             deal.trade_date,
@@ -254,23 +270,36 @@ class DealService:
             )
 
         deal.value_date = value_date
-        await self._repo.set_validation_status(deal, ValidationStatus.VALID)
-        await self._repo.replace_payments(deal, payment_rows)
-        updated = await self._repo.save_existing(deal)
-        await self._audit.log(
-            entity_id=updated.id,
-            entity_type="FXDeal",
-            action="VALIDATE",
-            created_by=user.email,
-            new_value=json.dumps(
-                {
-                    "validation_status": ValidationStatus.VALID.value,
-                    "value_date": value_date.isoformat(),
-                    "payments": len(payment_rows),
-                }
-            ),
-        )
-        await self._repo.commit()
+        try:
+            await self._repo.set_validation_status(deal, ValidationStatus.VALID)
+            await self._repo.replace_payments(deal, payment_rows)
+            updated = await self._repo.save_existing(deal)
+            await self._audit.log(
+                entity_id=updated.id,
+                entity_type="FXDeal",
+                action="VALIDATE",
+                created_by=user.email,
+                new_value=json.dumps(
+                    {
+                        "validation_status": ValidationStatus.VALID.value,
+                        "value_date": value_date.isoformat(),
+                        "payments": len(payment_rows),
+                    }
+                ),
+            )
+            await self._repo.commit()
+        except PaymentSaveFaultError as exc:
+            await self._repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to persist deal payments: {exc}",
+            ) from exc
+        except Exception as exc:
+            await self._repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to persist deal and payments",
+            ) from exc
         return _to_response(updated)
 
 

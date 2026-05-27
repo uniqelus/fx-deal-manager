@@ -4,7 +4,6 @@ from fx_deal_manager.domain.schemas import (
     CounterpartyResponse,
     CurrencyResponse,
     NostroAccountResponse,
-    NsiSyncResponse,
 )
 from fx_deal_manager.repositories.nsi_repository import NsiRepository
 
@@ -30,10 +29,3 @@ class NsiService:
         )
         return [NostroAccountResponse.model_validate(row) for row in rows]
 
-    async def sync_from_external(self) -> NsiSyncResponse:
-        rows = await self._repo.list_counterparties(active_only=False)
-        return NsiSyncResponse(
-            synced=True,
-            counterparties=len(rows),
-            message="NSI sync stub: external catalog loaded into local reference data",
-        )

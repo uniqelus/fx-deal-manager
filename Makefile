@@ -30,7 +30,7 @@ migrate-down: ## Откатить последнюю миграцию
 	$(UV) run alembic downgrade -1
 
 test-integration: migrate ## Интеграционные тесты (PostgreSQL)
-	RUN_INTEGRATION_TESTS=1 $(UV) run pytest tests/test_deals_integration.py tests/test_validate_integration.py tests/test_stage4_integration.py -v
+	RUN_INTEGRATION_TESTS=1 $(UV) run pytest tests/test_pmi_appendix_g.py tests/test_deals_integration.py tests/test_validate_integration.py tests/test_stage6_cancel_reports.py -v
 
 test: ## Запустить тесты
 	$(UV) run pytest

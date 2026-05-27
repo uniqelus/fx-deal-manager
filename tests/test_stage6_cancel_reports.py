@@ -8,34 +8,13 @@ import io
 import pytest
 from httpx import AsyncClient
 
-from fx_deal_manager.api.dependencies import get_current_user
-from fx_deal_manager.main import app
-from tests.conftest import TRADER
-from tests.test_stage4_integration import ADMIN, POSITIONER
-
-
-SAMPLE_DEAL: dict[str, object] = {
-    "trade_date": "2026-05-08",
-    "deal_type": "TOD",
-    "operation_direction": "BUY",
-    "buy_currency": "USD",
-    "sell_currency": "RUB",
-    "amount": "100000.00",
-    "rate": "92.50",
-    "counterparty_id": "VTBR",
-}
-
-
-async def _create_draft(client: AsyncClient) -> str:
-    response = await client.post("/api/v1/deals", json=SAMPLE_DEAL)
-    assert response.status_code == 201, response.text
-    return response.json()["id"]
+from tests.conftest import ADMIN, POSITIONER, TRADER, create_draft, set_integration_user
 
 
 @pytest.mark.asyncio
 async def test_cancel_draft_deal(integration_client: AsyncClient) -> None:
-    app.dependency_overrides[get_current_user] = lambda: TRADER
-    deal_id = await _create_draft(integration_client)
+    set_integration_user(TRADER)
+    deal_id = await create_draft(integration_client)
 
     cancel = await integration_client.post(
         f"/api/v1/deals/{deal_id}/cancel",
@@ -57,8 +36,8 @@ async def test_cancel_draft_deal(integration_client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_cancel_non_draft_forbidden(integration_client: AsyncClient) -> None:
-    app.dependency_overrides[get_current_user] = lambda: TRADER
-    deal_id = await _create_draft(integration_client)
+    set_integration_user(TRADER)
+    deal_id = await create_draft(integration_client)
 
     validate = await integration_client.post(f"/api/v1/deals/{deal_id}/validate")
     assert validate.status_code == 200
@@ -73,20 +52,20 @@ async def test_cancel_non_draft_forbidden(integration_client: AsyncClient) -> No
 
 @pytest.mark.asyncio
 async def test_cancel_requires_creator(integration_client: AsyncClient) -> None:
-    app.dependency_overrides[get_current_user] = lambda: TRADER
-    deal_id = await _create_draft(integration_client)
+    set_integration_user(TRADER)
+    deal_id = await create_draft(integration_client)
 
-    app.dependency_overrides[get_current_user] = lambda: POSITIONER
+    set_integration_user(POSITIONER)
     cancel = await integration_client.post(f"/api/v1/deals/{deal_id}/cancel")
     assert cancel.status_code == 403
 
 
 @pytest.mark.asyncio
 async def test_reports_json(integration_client: AsyncClient) -> None:
-    app.dependency_overrides[get_current_user] = lambda: TRADER
-    await _create_draft(integration_client)
+    set_integration_user(TRADER)
+    await create_draft(integration_client)
 
-    app.dependency_overrides[get_current_user] = lambda: ADMIN
+    set_integration_user(ADMIN)
     response = await integration_client.get(
         "/api/v1/reports/deals?counterparty_id=VTBR&format=json"
     )
@@ -98,10 +77,10 @@ async def test_reports_json(integration_client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_reports_csv(integration_client: AsyncClient) -> None:
-    app.dependency_overrides[get_current_user] = lambda: TRADER
-    await _create_draft(integration_client)
+    set_integration_user(TRADER)
+    await create_draft(integration_client)
 
-    app.dependency_overrides[get_current_user] = lambda: ADMIN
+    set_integration_user(ADMIN)
     response = await integration_client.get(
         "/api/v1/reports/deals?counterparty_id=VTBR&format=csv"
     )
@@ -120,6 +99,6 @@ async def test_reports_csv(integration_client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_reports_role_restriction(integration_client: AsyncClient) -> None:
-    app.dependency_overrides[get_current_user] = lambda: TRADER
+    set_integration_user(TRADER)
     response = await integration_client.get("/api/v1/reports/deals?format=json")
     assert response.status_code == 403

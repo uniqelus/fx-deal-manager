@@ -138,13 +138,17 @@ curl -s -X POST http://localhost:8000/api/v1/deals/{id}/validate \
 | Method | Path | Роль | Описание |
 |--------|------|------|----------|
 | POST | `/api/v1/deals/{id}/submit` | TRADER | Отправка на согласование (после VALID) |
-| POST | `/api/v1/deals/{id}/approve` | POSITIONER | Одобрение → position stub → `EXECUTED` |
+| POST | `/api/v1/deals/{id}/approve` | POSITIONER | Одобрение → реальная отправка платежей в POSITIONS → `EXECUTED` |
 | POST | `/api/v1/deals/{id}/return` | POSITIONER | Возврат с комментарием → `REJECTED` |
 | POST | `/api/v1/deals/{id}/reject` | POSITIONER | Отклонение → `REJECTED` |
 | POST | `/api/v1/deals/{id}/take-for-edit` | TRADER | `REJECTED` → `DRAFT` |
 | GET | `/api/v1/deals/queue` | POSITIONER | Очередь согласования |
 | GET | `/api/v1/audit-events` | ALL | Журнал аудита (`entity_id`, `user_id`, `from`, `to`) |
-| POST | `/api/v1/nsi/sync` | ADMIN | Stub-синхронизация НСИ |
+| GET | `/api/v1/positions` | POSITIONER/AUDITOR/ADMIN | Остатки NOSTRO из POSITIONS + открытая FX-экспозиция |
+| GET | `/api/v1/quotes` | ALL | Индикативные котировки из последних реальных FX-сделок |
+| GET | `/api/v1/notifications` | ALL | Уведомления из audit log |
+| POST | `/api/v1/notifications/read-all` | ALL | Отметить события прочитанными |
+| GET/PATCH | `/api/v1/me` | ALL | Профиль IdP + локальные настройки рабочего места |
 
 ## Отмена и отчёты (этап 6)
 

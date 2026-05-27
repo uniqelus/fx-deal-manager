@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fx_deal_manager.api.exceptions import ValidationFailedError
 from fx_deal_manager.domain.enums import (
     ApprovalDecision,
     DealState,
@@ -11,10 +12,11 @@ from fx_deal_manager.domain.enums import (
 )
 from fx_deal_manager.domain.models import FXDeal, PositionerSolution
 from fx_deal_manager.domain.schemas import DealResponse, UserClaims
-from fx_deal_manager.integrations.position_stub import PositionSystemAdapter
+from fx_deal_manager.integrations.position_client import PositionSystemAdapter
 from fx_deal_manager.repositories.deal_repository import DealNotFoundError, DealRepository
 from fx_deal_manager.services.audit_log_service import AuditLogService
 from fx_deal_manager.services.deal_service import _to_response
+from fx_deal_manager.services.limit_check import LimitCheckService
 
 
 class ApprovalService:
@@ -22,6 +24,7 @@ class ApprovalService:
         self._session = session
         self._repo = DealRepository(session)
         self._audit = AuditLogService(session)
+        self._limit_check = LimitCheckService(session)
         self._position = PositionSystemAdapter()
 
     async def submit_deal(self, deal_id: UUID, user: UserClaims) -> DealResponse:
@@ -31,9 +34,22 @@ class ApprovalService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Deal is not in DRAFT")
         if deal.validation_status.code != ValidationStatus.VALID.value:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Deal must be validated before submit",
             )
+
+        limit_issues = await self._limit_check.check(deal)
+        if limit_issues:
+            await self._repo.set_validation_status(deal, ValidationStatus.INVALID)
+            await self._audit.log(
+                entity_id=deal.id,
+                entity_type="FXDeal",
+                action="VALIDATE_FAILED",
+                created_by=user.email,
+                new_value=json.dumps([issue.__dict__ for issue in limit_issues]),
+            )
+            await self._repo.commit()
+            raise ValidationFailedError(limit_issues)
 
         old_status = deal.deal_state.code
         await self._repo.set_deal_state(deal, DealState.WAITING_FOR_POSITIONER)
@@ -187,7 +203,7 @@ class ApprovalService:
             )
         if decision == ApprovalDecision.RETURN_FOR_EDIT and not comment:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Comment is required when returning for edit",
             )
 

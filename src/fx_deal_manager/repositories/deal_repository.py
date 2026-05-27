@@ -5,6 +5,7 @@ from sqlalchemy import Select, String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from fx_deal_manager.core.fault_injection import check_payment_save_fault
 from fx_deal_manager.domain.enums import DealState, DealType, PaymentDirection, ValidationStatus
 from fx_deal_manager.domain.models import (
     Counterparty,
@@ -69,8 +70,13 @@ class DealRepository:
 
     async def replace_payments(self, deal: FXDeal, payments: list[Payment]) -> None:
         deal.payments.clear()
-        deal.payments.extend(payments)
+        for index, payment in enumerate(payments, start=1):
+            check_payment_save_fault(index)
+            deal.payments.append(payment)
         await self._session.flush()
+
+    async def rollback(self) -> None:
+        await self._session.rollback()
 
     async def set_validation_status(self, deal: FXDeal, status: ValidationStatus) -> None:
         deal.validation_status_id = await LookupCache.validation_status_id(self._session, status)
@@ -174,6 +180,34 @@ class DealRepository:
         stmt = stmt.order_by(FXDeal.created_at.desc()).offset(offset).limit(page_size)
         rows = (await self._session.execute(stmt)).scalars().all()
         return list(rows), total
+
+    async def list_deals_for_regulatory_report(
+        self,
+        *,
+        trade_date_from: date | None = None,
+        trade_date_to: date | None = None,
+        counterparty_id: str | None = None,
+    ) -> list[FXDeal]:
+        cancelled_id = await LookupCache.deal_state_id(self._session, DealState.CANCELLED)
+        stmt = (
+            select(FXDeal)
+            .where(FXDeal.deal_state_id != cancelled_id)
+            .options(
+                selectinload(FXDeal.payments).selectinload(Payment.payment_direction),
+                selectinload(FXDeal.deal_type),
+                selectinload(FXDeal.deal_state),
+                selectinload(FXDeal.validation_status),
+                selectinload(FXDeal.counterparty),
+            )
+            .order_by(FXDeal.trade_date, FXDeal.created_at)
+        )
+        if trade_date_from is not None:
+            stmt = stmt.where(FXDeal.trade_date >= trade_date_from)
+        if trade_date_to is not None:
+            stmt = stmt.where(FXDeal.trade_date <= trade_date_to)
+        if counterparty_id is not None:
+            stmt = stmt.where(FXDeal.counterparty_id == counterparty_id)
+        return list((await self._session.execute(stmt)).scalars().all())
 
     async def counterparty_exists(self, counterparty_id: str) -> bool:
         result = await self._session.execute(

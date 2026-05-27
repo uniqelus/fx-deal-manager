@@ -1,6 +1,6 @@
 # План выполнения проекта FX-АСУБАНК
 
-**Статус:** утверждён  
+**Статус:** архивный план; фактический compose-стенд уже переведён на реальные HTTP-контракты  
 **Дата:** 24.05.2026  
 **Срок проекта (ТЗ):** 24.02.2026 — 25.05.2026; защита/демо — до **28.05.2026**
 
@@ -14,9 +14,9 @@
 
 | Репозиторий | Роль | Зрелость |
 |-------------|------|----------|
-| [fx-deal-manager](.) | REST API, бизнес-логика, БД | **~5%** — только `GET /api/v1/health` |
+| [fx-deal-manager](.) | REST API, бизнес-логика, БД | Реализован: сделки, аудит, отчёты, FX→POSITIONS, UI-контракты |
 | [identity-provider](../identity-provider) | Auth, JWT, RBAC | **~70%** — login/register/refresh, JWKS, client_credentials |
-| [fx-deal-manager-ui](../fx-deal-manager-ui) | Web UI | **~40%** — 17 экранов, мок-данные, без API |
+| [fx-deal-manager-ui](../fx-deal-manager-ui) | Web UI | Реализован: login IdP, API-driven экраны, без запасных статических данных |
 
 Документация ([wiki](../fx-deal-manager.wiki), ТЗ PDF, ПЗ к ТП) **полная**; реализация бизнес-логики **отсутствует**.
 
@@ -39,7 +39,7 @@
 flowchart LR
     subgraph done [Ready]
         Docs[Wiki docs]
-        UI[UI mock 17 pages]
+        UI[UI 17 pages]
         IdP[identity-provider]
         Scaffold[FastAPI scaffold]
     end
@@ -49,7 +49,7 @@ flowchart LR
         Domain[Domain services]
         API[Deal NSI Audit API]
         AuthInt[JWT backend UI]
-        Integrations[Integration stubs]
+        Integrations[HTTP integration contracts]
         Tests[Integration tests]
     end
 
@@ -84,23 +84,23 @@ flowchart TB
     API["fx-deal-manager :8000"]
     PG[("PostgreSQL")]
     Redis[("Redis — optionalno")]
-    PosStub["Position system stub"]
-    NSIStub["NSI stub"]
+    Positions["POSITIONS-ASUBANK"]
+    NSI["Local NSI tables"]
 
     UI -->|"Bearer JWT"| API
     UI -->|"login/refresh"| IdP
     API -->|"JWKS validate"| IdP
     API --> PG
     API --> Redis
-    API -->|"on APPROVED"| PosStub
-    API --> NSIStub
+    API -->|"on EXECUTED payments"| Positions
+    API --> NSI
 ```
 
 **Принципы реализации прототипа:**
 
 - Монолитный FastAPI-модуль с чётким разделением слоёв (routes → services → repositories), как в [wiki Architecture](../fx-deal-manager.wiki/Architecture.md)
 - PostgreSQL + Alembic; схема по [Database-Schema](../fx-deal-manager.wiki/Database-Schema.md)
-- NSI и система позиций — **stub-адаптеры** (риск R-02 из [Project-Plan](../fx-deal-manager.wiki/Project-Plan.md))
+- NSI — локальные справочники, система позиций — HTTP-контракт с POSITIONS-АСУБАНК
 - UI: минимальная доработка статического фронта (fetch + JWT), без миграции на SPA на этапе прототипа
 
 ---
@@ -133,7 +133,7 @@ cd fx-deal-manager-ui && python3 -m http.server 5173
 
 **fx-deal-manager-ui:**
 
-- Заменить mock-login в [index.html](../fx-deal-manager-ui/index.html): `POST http://localhost:8083/api/v1/auth/login` → `accessToken`/`refreshToken` в `sessionStorage`
+- Заменить локальный вход в [index.html](../fx-deal-manager-ui/index.html): `POST http://localhost:8083/api/v1/auth/login` → `accessToken`/`refreshToken` в `sessionStorage`
 - Добавить `js/api.js`: `IDP_URL`, `API_URL`, intercept 401 → refresh → retry
 - Конфиг URL через `js/config.js` (не хардкод в IdP)
 
@@ -226,7 +226,7 @@ DRAFT → WAITING_FOR_POSITIONER → APPROVED
 
 ---
 
-### Этап 4. Аудит и интеграции-stub (2–3 дня)
+### Этап 4. Аудит и интеграционные контракты (2–3 дня)
 
 **Цель:** FR-018, FR-017 (частично).
 
@@ -235,17 +235,17 @@ DRAFT → WAITING_FOR_POSITIONER → APPROVED
 - `AuditLogService` — append-only записи при create/update/status change
 - `GET /api/v1/audit-events?entity_id=&user_id=&from=&to=`
 
-**Position system stub:**
+**Position system contract:**
 
-- `IntegrationAdapter.send_deal(deal)` — REST POST на mock-сервис или in-process handler
+- `PositionSystemAdapter.send_deal(deal)` — REST POST на `POSITIONS-ASUBANK /payments/incoming`
 - При успехе: deal → статус «Исполнена» (расширение FR-017)
 - Retry 3x с exponential backoff; логирование correlation_id
 
-**NSI sync stub:**
+**NSI contract:**
 
-- `POST /api/v1/nsi/sync` — имитация загрузки из внешней системы (ADMIN)
+- Справочники НСИ доступны через `GET /api/v1/nsi/*`; ручная синхронизация исключена из текущего backend-контракта
 
-**Критерий готовности:** после approve сделка уходит в stub; audit log содержит полную историю; analyst видит события.
+**Критерий готовности:** после approve платежи сделки уходят в POSITIONS-АСУБАНК; audit log содержит полную историю; analyst видит события.
 
 ---
 
@@ -268,11 +268,11 @@ DRAFT → WAITING_FOR_POSITIONER → APPROVED
 **Изменения в UI:**
 
 - Новый `js/api.js` + рефакторинг [js/app.js](../fx-deal-manager-ui/js/app.js)
-- Замена hardcoded таблиц на динамический рендер (минимальный DOM-builder или template literals)
+- Замена встроенных HTML-плейсхолдеров на динамический рендер API-данных
 - Маппинг ролей: JWT `TRADER`/`POSITIONER`/`AUDITOR`/`ADMIN` → существующие guards
 - Toast при ошибках API (422 validation)
 
-**Не в scope прототипа:** quotes RFQ, positions live, reports XLSX, notifications push — оставить как mock с пометкой «Phase 2».
+**Не в scope прототипа:** RFQ-торги маркет-мейкеров и push-уведомления; котировки, позиции и уведомления закрыты текущими API-контрактами.
 
 **Критерий готовности:** демо-сценарий «трейдер создаёт Spot → позиционер одобряет» без curl.
 
@@ -308,7 +308,7 @@ DRAFT → WAITING_FOR_POSITIONER → APPROVED
 
 **Демо-сценарии для защиты (28.05):**
 
-1. **Happy path:** Spot EUR/RUB → validate → submit → approve → position stub → audit
+1. **Happy path:** Spot EUR/RUB → validate → submit → approve → POSITIONS-АСУБАНК → audit
 2. **Return for edit:** позиционер возвращает с комментарием → трейдер правит → повторная отправка
 3. **Validation error:** неактивный контрагент / отсутствует nostro
 4. **RBAC:** трейдер не может approve; позиционер не может create
@@ -338,8 +338,7 @@ src/fx_deal_manager/
 ├── repositories/
 │   └── deal_repository.py
 ├── integrations/
-│   ├── position_stub.py
-│   └── nsi_stub.py
+│   └── position_client.py
 └── main.py
 ```
 
@@ -408,14 +407,14 @@ src/fx_deal_manager/
 | 1. Domain + Deal API | 5 | 26–28.05 |
 | 2. Валидация и расчёты | 4 | 28–30.05* |
 | 3. Workflow | 4 | 30.05–01.06* |
-| 4. Аудит + stubs | 3 | параллельно с 3 |
+| 4. Аудит + интеграционные контракты | 3 | параллельно с 3 |
 | 5. UI интеграция | 4 | после API |
 | 6. Отчёты/admin | 3 | optional |
 | 7. Тесты + docs + demo | 4 | финал |
 
 \*Календарь выходит за 28.05 — для защиты **26.05** нужен урезанный MVP: этапы 0–3 + частичный 5 (create/submit/approve на 3 экранах) + ручное API-демо для остального.
 
-**Рекомендация для защиты 28.05:** параллельная работа — один разработчик на бэкенд (этапы 0–4), второй на UI auth + deals flow (этап 5); stub-интеграции и audit — с первого дня.
+**Рекомендация для защиты 28.05:** параллельная работа — один разработчик на бэкенд (этапы 0–4), второй на UI auth + deals flow (этап 5); интеграции и audit — с первого дня.
 
 ---
 
@@ -438,7 +437,7 @@ src/fx_deal_manager/
 - [x] **Этап 1:** Alembic миграции, доменные модели, Deal CRUD API + RBAC
 - [x] **Этап 2:** ValidationService, SettlementService, NSI seed, validate endpoint
 - [x] **Этап 3:** State machine согласования (submit/approve/return/reject), queue API
-- [x] **Этап 4:** AuditLogService, position/NSI stub-адаптеры
-- [ ] **Этап 5:** js/api.js, подключение deals/queue/audit экранов к API
+- [x] **Этап 4:** AuditLogService, HTTP-контракт с POSITIONS-АСУБАНК, НСИ API
+- [x] **Этап 5:** js/api.js, подключение deals/queue/audit/positions/quotes/notifications/settings экранов к API
 - [x] **Этап 6 (optional):** Reports CSV (`GET /reports/deals`), отмена в DRAFT (`POST /deals/{id}/cancel`, FR-015), state `CANCELLED`
 - [x] **Этап 7:** Integration tests (`test_stage6_cancel_reports.py`), `docs/ПМИ.md`, `docs/Руководство-*.md`, `scripts/demo.sh`

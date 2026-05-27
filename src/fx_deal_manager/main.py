@@ -5,13 +5,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from fx_deal_manager.api.middleware import RequestLoggingMiddleware
-from fx_deal_manager.api.exceptions import ValidationFailedError, validation_failed_handler
+from fx_deal_manager.api.exceptions import (
+    RegulatoryReportIncompleteError,
+    ValidationFailedError,
+    regulatory_report_incomplete_handler,
+    validation_failed_handler,
+)
 from fx_deal_manager.api.routes import (
     audit_router,
     deals_router,
     health_router,
     me_router,
+    notifications_router,
     nsi_router,
+    positions_router,
+    quotes_router,
     reports_router,
 )
 from fx_deal_manager.core.config import settings
@@ -55,10 +63,14 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RequestLoggingMiddleware)
     app.add_exception_handler(ValidationFailedError, validation_failed_handler)
+    app.add_exception_handler(RegulatoryReportIncompleteError, regulatory_report_incomplete_handler)
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(me_router, prefix="/api/v1")
     app.include_router(deals_router, prefix="/api/v1")
     app.include_router(nsi_router, prefix="/api/v1")
+    app.include_router(positions_router, prefix="/api/v1")
+    app.include_router(quotes_router, prefix="/api/v1")
+    app.include_router(notifications_router, prefix="/api/v1")
     app.include_router(audit_router, prefix="/api/v1")
     app.include_router(reports_router, prefix="/api/v1")
     return app

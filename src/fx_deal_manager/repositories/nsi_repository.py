@@ -36,6 +36,17 @@ class NsiRepository:
             stmt = stmt.where(NostroAccount.is_active.is_(True))
         return list((await self._session.execute(stmt)).scalars().all())
 
+    async def get_nostro_account(self, account_id: str) -> NostroAccount | None:
+        return await self._session.get(NostroAccount, account_id)
+
+    async def nostro_by_id(self) -> dict[str, NostroAccount]:
+        accounts = await self.list_nostro_accounts(active_only=False)
+        return {account.id: account for account in accounts}
+
+    async def nostro_by_account_number(self) -> dict[str, NostroAccount]:
+        accounts = await self.list_nostro_accounts(active_only=False)
+        return {account.account_number: account for account in accounts}
+
     async def nostro_by_currency(self) -> dict[str, NostroAccount]:
         accounts = await self.list_nostro_accounts(active_only=True)
         result: dict[str, NostroAccount] = {}

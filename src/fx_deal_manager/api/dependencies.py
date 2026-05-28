@@ -29,6 +29,14 @@ def get_current_user(
         ) from exc
 
 
+def get_bearer_token(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+) -> str | None:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return None
+    return credentials.credentials
+
+
 def require_role(*allowed_roles: str) -> Callable[..., UserClaims]:
     def dependency(user: Annotated[UserClaims, Depends(get_current_user)]) -> UserClaims:
         if user.role not in allowed_roles:

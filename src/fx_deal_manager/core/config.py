@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     position_send_retries: int = 3
     position_send_backoff_seconds: float = 0.5
 
+    nsi_base_url: str | None = None
+
     payment_save_fault_after: int | None = None
 
     @property
